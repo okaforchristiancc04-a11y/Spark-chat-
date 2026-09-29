@@ -18,6 +18,7 @@ jobs:
         shell: bash
         run: |
           set -e
+
           rm -rf project
           mkdir -p project
 
@@ -38,10 +39,10 @@ jobs:
         run: |
           set -e
 
-          SETTINGS=$(find project -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1)
+          SETTINGS=$(find project -type f \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n 1)
 
           if [ -z "$SETTINGS" ]; then
-            echo "ERROR: settings.gradle not found."
+            echo "ERROR: settings.gradle was not found."
             exit 1
           fi
 
@@ -77,7 +78,9 @@ jobs:
         shell: bash
         run: |
           set -e
+
           cd "$PROJECT_DIR"
+
           gradle :app:assembleDebug --no-daemon
 
       - name: Upload Spark Chat APK
@@ -86,3 +89,4 @@ jobs:
           name: SparkChat-APK
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
