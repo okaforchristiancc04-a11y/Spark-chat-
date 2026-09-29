@@ -38,10 +38,10 @@ jobs:
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
-        uses: gradle/actions/setup-gradle@v4
+        java-version: '17'
 uses: android-actions/setup-android@v3
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Install Android SDK packages
         run: |
