@@ -14,7 +14,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Find and extract Spark Chat project
+      - name: Extract Spark Chat project
         shell: bash
         run: |
           set -e
@@ -25,23 +25,49 @@ jobs:
           ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
 
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERROR: Spark Chat ZIP was not found."
+            echo "ERROR: No Spark Chat ZIP found."
             exit 1
           fi
 
-          echo "Using: $ZIP_FILE"
+          echo "Using ZIP: $ZIP_FILE"
           unzip -q "$ZIP_FILE" -d project
 
-          PROJECT_DIR=$(find project -name "settings.gradle.kts" -type f -print -quit | xargs dirname)
+          APP_BUILD=$(find project -type f -path "*/app/build.gradle.kts" | head -n 1)
 
-          if [ -z "$PROJECT_DIR" ]; then
-            echo "ERROR: Android Studio project was not found."
-            find project -maxdepth 4 -type f
+          if [ -z "$APP_BUILD" ]; then
+            echo "ERROR: app/build.gradle.kts was not found."
+            echo "Files found:"
+            find project -maxdepth 6 -type f
             exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$(dirname "$APP_BUILD")")
+
+          echo "Android project: $PROJECT_DIR"
+
+          if [ ! -f "$PROJECT_DIR/settings.gradle.kts" ]; then
+            echo "Creating settings.gradle.kts"
+            printf '%s\n' \
+              'pluginManagement {' \
+              '    repositories {' \
+              '        google()' \
+              '        mavenCentral()' \
+              '        gradlePluginPortal()' \
+              '    }' \
+              '}' \
+              'dependencyResolutionManagement {' \
+              '    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)' \
+              '    repositories {' \
+              '        google()' \
+              '        mavenCentral()' \
+              '    }' \
+              '}' \
+              'rootProject.name = "SparkChat"' \
+              'include(":app")' \
+              > "$PROJECT_DIR/settings.gradle.kts"
           fi
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Spark Chat project found at: $PROJECT_DIR"
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -54,11 +80,11 @@ jobs:
         with:
           gradle-version: "8.10"
 
-      - name: Build Spark Chat APK
+      - name: Build Spark Chat
         working-directory: ${{ env.PROJECT_DIR }}
         run: gradle assembleDebug --no-daemon
 
-      - name: Upload Spark Chat APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SparkChat-debug-apk
