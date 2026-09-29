@@ -20,31 +20,50 @@ jobs:
           set -e
           rm -rf project
           mkdir -p project
-          unzip -q "SparkChat_GitHub_APK_Project.zip" -d project
+
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name "SparkChat_GitHub_APK_Project.zip" -print -quit)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: SparkChat_GitHub_APK_Project.zip not found."
+            exit 1
+          fi
+
+          unzip -q "$ZIP_FILE" -d project
 
           echo "Files extracted:"
-          find project -maxdepth 4 -type f | head -100
+          find project -maxdepth 4 -type f | sort
 
-          SETTINGS=$(find project -type f -name "settings.gradle" -o -name "settings.gradle.kts" | head -1)
+      - name: Find Android project
+        shell: bash
+        run: |
+          set -e
+
+          SETTINGS=$(find project -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1)
 
           if [ -z "$SETTINGS" ]; then
-            echo "ERROR: settings.gradle was not found."
+            echo "ERROR: settings.gradle not found."
             exit 1
           fi
 
           PROJECT_DIR=$(dirname "$SETTINGS")
+
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Android project found at: $PROJECT_DIR"
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
-        java-version: '17'
-        uses: android-actions/setup-android@v3
+          distribution: temurin
+          java-version: '17'
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
       - name: Install Android SDK packages
+        shell: bash
         run: |
+          set -e
+
           sdkmanager "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
@@ -59,12 +78,11 @@ jobs:
         run: |
           set -e
           cd "$PROJECT_DIR"
-          gradle :app:assembleDebug --no-daemon --stacktrace
+          gradle :app:assembleDebug --no-daemon
 
       - name: Upload Spark Chat APK
         uses: actions/upload-artifact@v4
         with:
           name: SparkChat-APK
-          path: |
-            **/app/build/outputs/apk/debug/*.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
